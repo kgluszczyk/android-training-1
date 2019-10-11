@@ -1,11 +1,15 @@
 package com.verifone.training
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import kotlinx.android.synthetic.main.activity_content.*
 
-class ContentActivity : AppCompatActivity() {
+class ContentActivity : AppCompatActivity(), OnMenuItemClickListener {
+    override fun onMenuItemClicked(menuItem: MenuItem) {
+        Toast.makeText(this, "Kliknieto ${menuItem.title} za ${menuItem.price}", Toast.LENGTH_SHORT).show()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,7 +42,7 @@ class ContentActivity : AppCompatActivity() {
                 fullDescription = "Full piers2"
             )
         )
-        val adapter = ListAdapter(itemList)
+        val adapter = ListAdapter(itemList, this)
         list.adapter = adapter
         list.layoutManager = GridLayoutManager(this, 1)
     }
