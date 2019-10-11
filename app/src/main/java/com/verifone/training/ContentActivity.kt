@@ -1,14 +1,29 @@
 package com.verifone.training
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
+import com.google.gson.Gson
+import io.reactivex.Single
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_content.*
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 class ContentActivity : AppCompatActivity(), OnMenuItemClickListener {
+
+    val compositeDisposable = CompositeDisposable()
     override fun onMenuItemClicked(menuItem: MenuItem) {
-        Toast.makeText(this, "Kliknieto ${menuItem.title} za ${menuItem.price}", Toast.LENGTH_SHORT).show()
+        //Toast.makeText(this, "Kliknieto ${menuItem.title} za ${menuItem.price}", Toast.LENGTH_SHORT).show()
+        supportFragmentManager.beginTransaction()
+            .replace(android.R.id.content, MenuItemFragment.newInstance(menuItem))
+            .addToBackStack("")
+            .commit()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,26 +39,38 @@ class ContentActivity : AppCompatActivity(), OnMenuItemClickListener {
             title_label.text = it
         }
 
-        val itemList = listOf(
-            MenuItem(
-                title = "Piers",
-                description = "Fajna piers",
-                price = 12.0,
-                fullDescription = "Full piers"
-            ), MenuItem(
-                title = "Piers1",
-                description = "Fajna piers2",
-                price = 11.0,
-                fullDescription = "Full piers2"
-            ), MenuItem(
-                title = "Piers2",
-                description = "Fajna piers2",
-                price = 10.0,
-                fullDescription = "Full piers2"
-            )
+        val interceptor = HttpLoggingInterceptor()
+        interceptor.level = HttpLoggingInterceptor.Level.BODY
+
+        val client = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .addInterceptor(interceptor)
+            .build()
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl(BuildConfig.ENDPOINT)
+            .addConverterFactory(GsonConverterFactory.create(Gson()))
+            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+            .client(client)
+            .build()
+
+        val menuService = retrofit.create(MenuService::class.java)
+
+        compositeDisposable.add(menuService.getMenu()
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                with(list) {
+                    adapter = ListAdapter(it, this@ContentActivity)
+                    layoutManager =
+                        androidx.recyclerview.widget.GridLayoutManager(this@ContentActivity, 1)
+                }
+            }, {})
         )
-        val adapter = ListAdapter(itemList, this)
-        list.adapter = adapter
-        list.layoutManager = GridLayoutManager(this, 1)
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        compositeDisposable.dispose()
     }
 }
